@@ -8,6 +8,8 @@ const categoryRoutes = require('./routes/category.routes');
 
 const app = express();
 
+
+
 app.use(cors());
 app.use(express.json());
 
