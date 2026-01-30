@@ -1,18 +1,23 @@
-const db = require("../config/db");
+exports.add = async (conn, jobId, userId, note) => {
+  await conn.query(
+    `
+    INSERT INTO service_actions (job_id, user_id, action_note, created_at)
+    VALUES (?, ?, ?, NOW())
+    `,
+    [jobId, userId, note]
+  );
+};
 
-exports.findByJob = async (jobId) => {
+exports.findByJob = async (jobId, db) => {
   const [rows] = await db.query(
-    "SELECT * FROM service_actions WHERE job_id = ? ORDER BY created_at DESC",
+    `
+    SELECT a.*, u.name
+    FROM service_actions a
+    LEFT JOIN users u ON u.id = a.user_id
+    WHERE a.job_id = ?
+    ORDER BY a.created_at ASC
+    `,
     [jobId]
   );
   return rows;
-};
-
-exports.create = async (jobId, userId, note) => {
-  await db.query(
-    `INSERT INTO service_actions
-     (job_id, user_id, action_note, created_at)
-     VALUES (?, ?, ?, NOW())`,
-    [jobId, userId, note]
-  );
 };
