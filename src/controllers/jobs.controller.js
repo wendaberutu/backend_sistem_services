@@ -1,108 +1,213 @@
-const service = require("../services/jobs.services");
+const Job = require("../models/serviceJob.model");
+const ServiceAction = require("../models/serviceAction.model");
+const db = require("../config/db");
 
-exports.getAll = async (req, res, next) => {
+/* ======================================================
+   ADMIN
+====================================================== */
+
+// GET /api/jobs
+exports.getAllJobs = async (req, res) => {
+  const jobs = await Job.findAll();
+  res.json({ success: true, data: jobs });
+};
+
+// POST /api/jobs
+exports.createJob = async (req, res) => {
+  const { item_name, item_description, reported_issue } = req.body;
+  const adminId = req.user.id;
+
+  if (!item_name || !reported_issue) {
+    return res.status(400).json({ message: "Invalid payload" });
+  }
+
+  const conn = await db.getConnection();
   try {
-    res.json(await service.getAllJobs());
+    await conn.beginTransaction();
+
+    const jobId = `SRV-${Date.now()}`;
+    const uid = `UID-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    await Job.create(conn, {
+      id: jobId,
+      qr_code_uid: uid,
+      item_name,
+      item_description,
+      reported_issue,
+      admin_id: adminId,
+    });
+
+    await ServiceAction.create(conn, {
+      job_id: jobId,
+      user_id: adminId,
+      action_note: "Barang diterima & didaftarkan oleh admin",
+    });
+
+    await conn.commit();
+
+    res.status(201).json({
+      success: true,
+      data: await Job.findById(jobId),
+    });
   } catch (e) {
-    next(e);
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
   }
 };
 
-exports.getForTechnician = async (req, res, next) => {
-  try {
-    res.json(await service.getJobsForTechnician(req.params.techId));
-  } catch (e) {
-    next(e);
-  }
+/* ======================================================
+   SHARED
+====================================================== */
+
+// GET /api/jobs/:id
+exports.getJobById = async (req, res) => {
+  const job = await Job.findById(req.params.id);
+  if (!job) return res.status(404).json({ message: "Job not found" });
+
+  const actions = await ServiceAction.findByJobId(job.id);
+
+  res.json({
+    success: true,
+    data: {
+      ...job,
+      actions,
+    },
+  });
 };
 
-exports.create = async (req, res, next) => {
-  try {
-    await service.createJob(req.body);
-    res.status(201).json({ success: true });
-  } catch (e) {
-    next(e);
-  }
+/* ======================================================
+   TECHNICIAN
+====================================================== */
+
+// GET /api/jobs/available/list
+exports.getAvailableJobs = async (req, res) => {
+  const jobs = await Job.findAvailableJobs();
+  res.json({ success: true, data: jobs });
 };
 
-exports.assign = async (req, res, next) => {
+// GET /api/jobs/me/list
+exports.getMyJobs = async (req, res) => {
+  const jobs = await Job.findMyJobs(req.user.id);
+  res.json({ success: true, data: jobs });
+};
+
+// PATCH /api/jobs/:id/claim
+exports.claimJob = async (req, res) => {
+  const conn = await db.getConnection();
   try {
-    await service.assignJob(
-      req.params.id,
-      req.body.admin_id,
-      req.body.technician_id,
-      req.body.note
-    );
+    await conn.beginTransaction();
+
+    await Job.claim(conn, req.params.id, req.user.id);
+
+    await ServiceAction.create(conn, {
+      job_id: req.params.id,
+      user_id: req.user.id,
+      action_note: "Pekerjaan diambil oleh teknisi",
+    });
+
+    await conn.commit();
     res.json({ success: true });
   } catch (e) {
-    next(e);
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
   }
 };
 
-exports.claim = async (req, res, next) => {
+// PATCH /api/jobs/:id/start
+exports.startJob = async (req, res) => {
+  const conn = await db.getConnection();
   try {
-    await service.claimJob(req.params.id, req.body.technician_id);
+    await conn.beginTransaction();
+
+    await Job.updateStatus(conn, req.params.id, "in_progress");
+
+    await ServiceAction.create(conn, {
+      job_id: req.params.id,
+      user_id: req.user.id,
+      action_note: "Pekerjaan dimulai",
+    });
+
+    await conn.commit();
     res.json({ success: true });
   } catch (e) {
-    next(e);
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
   }
 };
 
-exports.updateStatus = async (req, res, next) => {
+// PATCH /api/jobs/:id/submit
+exports.submitJob = async (req, res) => {
+  const conn = await db.getConnection();
   try {
-    await service.updateStatus(
-      req.params.id,
-      req.body.status,
-      req.body.changed_by,
-      req.body.note
-    );
+    await conn.beginTransaction();
+
+    await Job.submitForVerification(conn, req.params.id);
+
+    await ServiceAction.create(conn, {
+      job_id: req.params.id,
+      user_id: req.user.id,
+      action_note: "Pekerjaan selesai, dikirim ke verifikasi",
+    });
+
+    await conn.commit();
     res.json({ success: true });
   } catch (e) {
-    next(e);
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
   }
 };
 
-exports.actions = async (req, res, next) => {
-  try {
-    res.json(await service.getActions(req.params.id));
-  } catch (e) {
-    next(e);
-  }
+/* ======================================================
+   VERIFIER
+====================================================== */
+
+// GET /api/jobs/verify/list
+exports.getVerificationJobs = async (req, res) => {
+  const jobs = await Job.findForVerification();
+  res.json({ success: true, data: jobs });
 };
 
-exports.addAction = async (req, res, next) => {
-  try {
-    await service.addAction(req.params.id, req.body.user_id, req.body.note);
-    res.status(201).json({ success: true });
-  } catch (e) {
-    next(e);
-  }
-};
+// PATCH /api/jobs/:id/verify
+exports.verifyJob = async (req, res) => {
+  const { status, note } = req.body;
+  const conn = await db.getConnection();
 
-exports.usePart = async (req, res, next) => {
-  try {
-    await service.usePart(
-      req.params.id,
-      req.body.technician_id,
-      req.body.sparepart_id,
-      req.body.qty
-    );
-    res.status(201).json({ success: true });
-  } catch (e) {
-    next(e);
+  if (!["approved", "rejected"].includes(status)) {
+    return res.status(400).json({ message: "Invalid status" });
   }
-};
 
-exports.verify = async (req, res, next) => {
   try {
-    await service.verifyJob(
-      req.params.id,
-      req.body.verifier_id,
-      req.body.result,
-      req.body.notes
-    );
+    await conn.beginTransaction();
+
+    if (status === "approved") {
+      await Job.approve(conn, req.params.id, req.user.id);
+    } else {
+      await Job.reject(conn, req.params.id, req.user.id);
+    }
+
+    await ServiceAction.create(conn, {
+      job_id: req.params.id,
+      user_id: req.user.id,
+      action_note:
+        status === "approved"
+          ? "VERIFIKASI LOLOS"
+          : `DITOLAK: ${note || "-"}`,
+    });
+
+    await conn.commit();
     res.json({ success: true });
   } catch (e) {
-    next(e);
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
   }
 };

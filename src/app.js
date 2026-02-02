@@ -6,7 +6,8 @@ const categoryRoutes = require('./routes/category.routes');
 const jobRoutes = require('./routes/jobs.routes');
 const publicRoutes = require('./routes/public.routes');
 const authRoutes = require('./routes/auth.routes');
-const userRoutes = require('./routes/users.routes');        
+const userRoutes = require('./routes/users.routes');  
+const usedPartsRoutes = require('./routes/usedPart.routes');      
 
 const app = express();
 
@@ -19,5 +20,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use("/api/used-parts", usedPartsRoutes);
+
 
 module.exports = app;
