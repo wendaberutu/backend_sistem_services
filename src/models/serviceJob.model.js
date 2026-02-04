@@ -83,18 +83,41 @@ exports.create = async (conn, data) => {
     item_description,
     reported_issue,
     admin_id,
+    technician_id = null,
   } = data;
+
+  const status = technician_id ? "assigned" : "waiting";
 
   await conn.query(
     `
     INSERT INTO service_jobs
-      (id, qr_code_uid, item_name, item_description, reported_issue, status, admin_id, entry_date)
+      (
+        id,
+        qr_code_uid,
+        item_name,
+        item_description,
+        reported_issue,
+        status,
+        admin_id,
+        technician_id,
+        entry_date
+      )
     VALUES
-      (?, ?, ?, ?, ?, 'waiting', ?, NOW())
+      (?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `,
-    [id, qr_code_uid, item_name, item_description, reported_issue, admin_id]
+    [
+      id,
+      qr_code_uid,
+      item_name,
+      item_description,
+      reported_issue,
+      status,
+      admin_id,
+      technician_id,
+    ]
   );
 };
+
 
 /* ======================================================
    ADMIN ACTION

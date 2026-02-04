@@ -19,50 +19,68 @@ const role = require("../middlewares/role.middleware");
 
 /*
 |--------------------------------------------------------------------------
-| JOB LISTING
+| ADMIN
 |--------------------------------------------------------------------------
 */
 
 // Admin: lihat semua job
 router.get("/", auth, role("admin"), getAllJobs);
 
-// Admin: buat job baru
+// Admin: buat job (boleh assign / tidak)
 router.post("/", auth, role("admin"), createJob);
-
-// Semua role: lihat detail job
-router.get("/:id", auth, getJobById);
 
 /*
 |--------------------------------------------------------------------------
-| TEKNISI FLOW
+| TEKNISI
 |--------------------------------------------------------------------------
-*/
 
-// Teknisi: job yang di-assign ke dia
+// Job yang di-assign ke teknisi
+*/
 router.get("/me/list", auth, role("technician"), getMyJobs);
 
-// Teknisi: job yang masih kosong
+// Job yang masih kosong (waiting)
 router.get("/available/list", auth, role("technician"), getAvailableJobs);
 
-// Teknisi: ambil job kosong
+// Ambil job kosong
 router.patch("/:id/claim", auth, role("technician"), claimJob);
 
-// Teknisi: mulai pekerjaan
+// Mulai pekerjaan
 router.patch("/:id/start", auth, role("technician"), startJob);
 
-// Teknisi: submit ke verifikasi
+// Submit ke verifikasi
 router.patch("/:id/submit", auth, role("technician"), submitJob);
 
 /*
 |--------------------------------------------------------------------------
-| VERIFICATION FLOW
+| VERIFIKATOR
+|--------------------------------------------------------------------------
+*/
+// List job yang di-assign ke verifikator
+router.get("/me/list", auth, role("verifier"), getMyJobs);
+
+// List job available untuk verifikator
+router.get("/available/list", auth, role("verifier"), getAvailableJobs);
+
+//clim job untuk role verifikator
+router.patch("/:id/claim", auth, role("verifier"), claimJob);
+
+//claim abn submit job untuk role verifikator
+router.patch("/:id/start", auth, role("verifier"), startJob);
+router.patch("/:id/submit", auth, role("verifier"), submitJob);
+
+// List job pending verifikasi
+router.get("/verify/list", auth, role("verifier"), getVerificationJobs);
+
+// Approve / Reject
+router.patch("/:id/verify", auth, role("verifier"), verifyJob);
+
+/*
+|--------------------------------------------------------------------------
+| SHARED (PALING BAWAH)
 |--------------------------------------------------------------------------
 */
 
-// Verifikator: list job pending verifikasi
-router.get("/verify/list", auth, role("verifier"), getVerificationJobs);
-
-// Verifikator: approve / reject
-router.patch("/:id/verify", auth, role("verifier"), verifyJob);
+// Detail job (SEMUA ROLE)
+router.get("/:id", auth, getJobById);
 
 module.exports = router;

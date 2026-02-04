@@ -8,7 +8,7 @@ const { addUsedPart } = require("../controllers/usedParts.controller");
 router.post(
   "/jobs/:id/parts",
   auth,
-  role("technician"),
+  role("technician", "verifier"),
   addUsedPart
 );
 

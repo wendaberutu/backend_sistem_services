@@ -1,6 +1,41 @@
 const Job = require("../models/serviceJob.model");
 const ServiceAction = require("../models/serviceAction.model");
 const db = require("../config/db");
+const { parse } = require("dotenv");
+
+/* ======================================================
+  Fungsi akses tanggal 
+====================================================== */
+
+function getToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+
+async function generateJobId(conn) {
+  const today = getToday();
+
+  const [rows] = await conn.query(
+    `
+    SELECT id
+    FROM service_jobs
+    WHERE id LIKE ?
+    ORDER BY id DESC
+    LIMIT 1
+    FOR UPDATE
+    `,
+    [`SRV-${today}-%`]
+  );
+
+  const seq = rows.length
+    ? parseInt(rows[0].id.split("-").pop(), 10) + 1
+    : 1;
+
+  return `SRV-${today}-${String(seq).padStart(4, "0")}`;
+}
 
 /* ======================================================
    ADMIN
@@ -14,7 +49,13 @@ exports.getAllJobs = async (req, res) => {
 
 // POST /api/jobs
 exports.createJob = async (req, res) => {
-  const { item_name, item_description, reported_issue } = req.body;
+  const {
+    item_name,
+    item_description,
+    reported_issue,
+    technician_id, // OPTIONAL
+  } = req.body;
+
   const adminId = req.user.id;
 
   if (!item_name || !reported_issue) {
@@ -25,9 +66,13 @@ exports.createJob = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    const jobId = `SRV-${Date.now()}`;
-    const uid = `UID-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const jobId = await generateJobId(conn);
+    const uid = `UID-${Math.random()
+      .toString(36)
+      .slice(2, 8)
+      .toUpperCase()}`;
 
+    // ⬇️ CREATE JOB (status ditentukan di MODEL)
     await Job.create(conn, {
       id: jobId,
       qr_code_uid: uid,
@@ -35,12 +80,16 @@ exports.createJob = async (req, res) => {
       item_description,
       reported_issue,
       admin_id: adminId,
+      technician_id: technician_id || null,
     });
 
+    // ⬇️ LOG ADMIN CREATE
     await ServiceAction.create(conn, {
       job_id: jobId,
       user_id: adminId,
-      action_note: "Barang diterima & didaftarkan oleh admin",
+      action_note: technician_id
+        ? `Barang didaftarkan & langsung di-assign ke teknisi ID ${technician_id}`
+        : "Barang diterima & didaftarkan oleh admin",
     });
 
     await conn.commit();
@@ -56,6 +105,7 @@ exports.createJob = async (req, res) => {
     conn.release();
   }
 };
+
 
 /* ======================================================
    SHARED
