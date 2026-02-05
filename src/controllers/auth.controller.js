@@ -10,7 +10,17 @@ exports.login = async (req, res, next) => {
     }
 
     const result = await authService.login(username, password);
-    res.json({ success: true, ...result });
+        res.cookie("access_token", result.token, {
+      httpOnly: true,
+      secure: false,        // true kalau HTTPS
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 8,
+    });
+
+    res.json({
+      success: true,
+      user: result.user,
+    });
   } catch (e) {
     next(e);
   }
@@ -21,4 +31,9 @@ exports.me = async (req, res) => {
     id: req.user.id,
     roles: req.user.roles,
   });
+};
+
+exports.logout = (req, res) => {
+  res.clearCookie("access_token");
+  res.json({ success: true });
 };

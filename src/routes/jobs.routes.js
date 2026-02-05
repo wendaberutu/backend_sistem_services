@@ -36,38 +36,25 @@ router.post("/", auth, role("admin"), createJob);
 
 // Job yang di-assign ke teknisi
 */
-router.get("/me/list", auth, role("technician"), getMyJobs);
+router.get("/me/list", auth, role("technician", "verifier"), getMyJobs);
 
 // Job yang masih kosong (waiting)
-router.get("/available/list", auth, role("technician"), getAvailableJobs);
+router.get("/available/list", auth, role("technician", "verifier"), getAvailableJobs);
 
 // Ambil job kosong
-router.patch("/:id/claim", auth, role("technician"), claimJob);
+router.patch("/:id/claim", auth, role("technician", "verifier"), claimJob);
 
 // Mulai pekerjaan
-router.patch("/:id/start", auth, role("technician"), startJob);
+router.patch("/:id/start", auth, role("technician", "verifier"), startJob);
 
 // Submit ke verifikasi
-router.patch("/:id/submit", auth, role("technician"), submitJob);
+router.patch("/:id/submit", auth, role("technician", "verifier"), submitJob);
 
 /*
 |--------------------------------------------------------------------------
 | VERIFIKATOR
 |--------------------------------------------------------------------------
 */
-// List job yang di-assign ke verifikator
-router.get("/me/list", auth, role("verifier"), getMyJobs);
-
-// List job available untuk verifikator
-router.get("/available/list", auth, role("verifier"), getAvailableJobs);
-
-//clim job untuk role verifikator
-router.patch("/:id/claim", auth, role("verifier"), claimJob);
-
-//claim abn submit job untuk role verifikator
-router.patch("/:id/start", auth, role("verifier"), startJob);
-router.patch("/:id/submit", auth, role("verifier"), submitJob);
-
 // List job pending verifikasi
 router.get("/verify/list", auth, role("verifier"), getVerificationJobs);
 
