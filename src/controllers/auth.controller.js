@@ -12,8 +12,8 @@ exports.login = async (req, res, next) => {
     const result = await authService.login(username, password);
         res.cookie("access_token", result.token, {
       httpOnly: true,
-      secure: false,        // true kalau HTTPS
-      sameSite: "lax",
+      secure: true,       
+      sameSite: "None", 
       maxAge: 1000 * 60 * 60 * 8,
     });
 
@@ -24,7 +24,7 @@ exports.login = async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-};
+};              
 
 exports.me = async (req, res) => {
   res.json({
